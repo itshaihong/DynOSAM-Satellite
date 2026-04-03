@@ -40,6 +40,7 @@
 #include "dynosam/dataprovider/TartanAirShibuya.hpp"
 #include "dynosam/dataprovider/ViodeDataProvider.hpp"
 #include "dynosam/dataprovider/VirtualKittiDataProvider.hpp"
+#include "dynosam/dataprovider/SpaceSenseDataProvider.hpp"
 #include "dynosam_common/utils/YamlParser.hpp"
 
 DEFINE_int32(starting_frame, -1,
@@ -106,7 +107,13 @@ DataProvider::Ptr DataProviderFactory::Create(
     loader->setStartingFrame(FLAGS_starting_frame);
     loader->setEndingFrame(FLAGS_ending_frame);
     return loader;
-  } else {
+  } else if (dataset_type == DatasetType::SPACESENSE) {
+    LOG(INFO) << "Using SpaceSense-bench dataset at path: " << dataset_folder_path;
+    auto loader = std::make_shared<SpaceSenseDataLoader>(dataset_folder_path);
+    loader->setStartingFrame(FLAGS_starting_frame);
+    loader->setEndingFrame(FLAGS_ending_frame);
+    return loader;
+  }else {
     throw std::runtime_error(
         "Unable to construct Dataprovider - unknown dataset type: " +
         static_cast<int>(dataset_type));
