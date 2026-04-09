@@ -39,6 +39,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get install libpng++-dev
 
 RUN python3 -m pip install pylatex evo setuptools pre-commit scipy argcomplete black pre-commit
+RUN apt-get update && apt-get install -y texlive-latex-recommended texlive-latex-extra latexmk
 
 # Install glog, gflags
 RUN apt-get update && apt-get install -y libgflags2.2 libgflags-dev libgoogle-glog-dev

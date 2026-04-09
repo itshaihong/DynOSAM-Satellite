@@ -77,10 +77,12 @@ public:
 
   cv::Mat getInstanceMask(size_t idx) const {
     CHECK_LT(idx, mask_paths_.size());
-    // Load as single channel integer mask
-    cv::Mat mask = cv::imread(mask_paths_.at(idx), cv::IMREAD_ANYDEPTH);
-    CHECK(!mask.empty()) << "Failed to load instance mask at " << mask_paths_.at(idx);
-    return mask;
+    cv::Mat mask_8u = cv::imread(mask_paths_.at(idx), cv::IMREAD_ANYDEPTH);
+    CHECK(!mask_8u.empty()) << "Failed to load instance mask at " << mask_paths_.at(idx);
+    cv::Mat mask_32s;
+    mask_8u.convertTo(mask_32s, CV_32SC1);
+    
+    return mask_32s;
   }
 
   const GroundTruthInputPacket& getGtPacket(size_t idx) const {
@@ -232,8 +234,11 @@ SpaceSenseDataLoader::SpaceSenseDataLoader(const fs::path& dataset_path)
       [loader](size_t idx) { return loader->getGtPacket(idx); });
 
   // Wire them up to the base provider. 
-  // Notice we pass `nullptr` for the optical flow loader.
-  this->setLoaders(timestamp_loader, rgb_loader, nullptr, depth_loader, instance_mask_loader, gt_loader);
+  // Notice we pass dummy for the optical flow loader.
+  auto dummy_flow_loader = std::make_shared<FunctionalDataFolder<cv::Mat>>(
+    [](size_t /*idx*/) { return cv::Mat(); } // Return empty matrix
+  );
+  this->setLoaders(timestamp_loader, rgb_loader, dummy_flow_loader, depth_loader, instance_mask_loader, gt_loader);
 
   // The callback packages the loaded cv::Mats into the ImageContainer
   auto callback = [&](size_t frame_id, Timestamp timestamp, cv::Mat rgb,
