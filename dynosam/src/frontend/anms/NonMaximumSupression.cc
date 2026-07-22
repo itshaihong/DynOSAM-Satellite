@@ -23,6 +23,7 @@
 #include "dynosam/frontend/anms/NonMaximumSuppression.h"
 #include "dynosam/frontend/anms/anms/anms.h"
 #include "dynosam_common/utils/TimingStats.hpp"
+#include <algorithm>
 
 namespace dyno {
 
@@ -44,16 +45,30 @@ std::vector<cv::KeyPoint> AdaptiveNonMaximumSuppression::suppressNonMax(
 
   // Sorting keypoints by deacreasing order of strength
   //   VLOG(5) << "Sorting keypoints in decreasing order of strength.";
-  std::vector<int> responseVector;
-  for (unsigned int i = 0; i < keyPoints.size(); i++) {
-    responseVector.push_back(keyPoints[i].response);
-  }
-  std::vector<int> Indx(responseVector.size());
-  std::iota(std::begin(Indx), std::end(Indx), 0);
-  cv::sortIdx(responseVector, Indx, cv::SortFlags::SORT_DESCENDING);
+  // std::vector<int> responseVector;
+  // for (unsigned int i = 0; i < keyPoints.size(); i++) {
+  //   responseVector.push_back(keyPoints[i].response);
+  // }
+  // std::vector<int> Indx(responseVector.size());
+  // std::iota(std::begin(Indx), std::end(Indx), 0);
+  // cv::sortIdx(responseVector, Indx, cv::SortFlags::SORT_DESCENDING);
+  // std::vector<cv::KeyPoint> keyPointsSorted;
+  // for (unsigned int i = 0; i < keyPoints.size(); i++) {
+  //   keyPointsSorted.push_back(keyPoints[Indx[i]]);
+  // }
+
+  std::vector<size_t> indices(keyPoints.size());
+  std::iota(indices.begin(), indices.end(), 0u);
+  std::stable_sort(indices.begin(), indices.end(),
+                  [&keyPoints](size_t lhs, size_t rhs) {
+                    return keyPoints[lhs].response >
+                            keyPoints[rhs].response;
+                  });
+
   std::vector<cv::KeyPoint> keyPointsSorted;
-  for (unsigned int i = 0; i < keyPoints.size(); i++) {
-    keyPointsSorted.push_back(keyPoints[Indx[i]]);
+  keyPointsSorted.reserve(keyPoints.size());
+  for (size_t index : indices) {
+    keyPointsSorted.push_back(keyPoints[index]);
   }
 
   std::vector<cv::KeyPoint> keypoints;

@@ -89,8 +89,19 @@ FunctionalDetector::Ptr FunctionalDetector::Create<GFTTDetectorCUDA>(
     cv::cuda::GpuMat keypointsGPU;
     detector->detect(d_img, keypointsGPU, d_mask);
 
+    // GpuMat::download expects a cv::Mat output. Downloading directly to a
+    // std::vector<cv::Point2f> trips OpenCV 4.10's fixed-type OutputArray
+    // assertion in matrix_wrap.cpp.
+    cv::Mat points_host;
+    keypointsGPU.download(points_host);
+    CHECK_EQ(points_host.type(), CV_32FC2);
+
     std::vector<cv::Point2f> points;
-    keypointsGPU.download(points);
+    points.reserve(points_host.total());
+    for (int row = 0; row < points_host.rows; ++row) {
+      const auto* row_points = points_host.ptr<cv::Point2f>(row);
+      points.insert(points.end(), row_points, row_points + points_host.cols);
+    }
 
     cv::KeyPoint::convert(points, keypoints);
   };
@@ -152,15 +163,12 @@ FunctionalDetector::Ptr FunctionalDetector::FactoryCreate(
     case FDT::ORB_SLAM_ORB:
       return FunctionalDetector::Create<ORBextractor>(tracker_params);
     case FDT::GFFT_CUDA: {
-      // TODO: this should actually be a #ifdef because
-      // Create<cv::cuda::FastFeatureDetector> is conditionally compiled
-      if (utils::opencvCudaAvailable()) {
-        return FunctionalDetector::Create<GFTTDetectorCUDA>(tracker_params);
-      } else {
-        LOG(WARNING) << "GFFT_CUDA selected but OPENCV CUDA not enabled. "
-                        "Falling back to GFFT";
-        return FunctionalDetector::Create<cv::GFTTDetector>(tracker_params);
-      }
+      // OpenCV 4.10's CUDA GoodFeaturesToTrack detector produces an
+      // incompatible corner buffer on this runtime.  Use the equivalent CPU
+      // detector until the CUDA implementation is made version-compatible.
+      LOG(WARNING) << "GFFT_CUDA selected; falling back to CPU GFTT because "
+                      "the OpenCV CUDA corner output is incompatible.";
+      return FunctionalDetector::Create<cv::GFTTDetector>(tracker_params);
     }
     default:
       LOG(ERROR) << "Unknown Feature detection type!";

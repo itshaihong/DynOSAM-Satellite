@@ -529,12 +529,32 @@ public:
 
   cv::Mat getInstanceMask(size_t idx) const {
     CHECK_LT(idx, mask_paths_.size());
-    cv::Mat mask_8u = cv::imread(mask_paths_.at(idx), cv::IMREAD_ANYDEPTH);
-    CHECK(!mask_8u.empty()) << "Failed to load instance mask at " << mask_paths_.at(idx);
-    cv::Mat mask_32s;
-    mask_8u.convertTo(mask_32s, CV_32SC1);
-    
-    return mask_32s;
+    // ImageContainer::objectMotionMask is an instance-label image.  It must
+    // therefore be CV_32SC1: one signed integer object id per pixel.
+    //
+    // The Kubric PNGs are RGBA (even though their R/G/B label values are the
+    // same).  convertTo changes only the depth, not the channel count, so the
+    // old code returned CV_32SC4.  Downstream code accesses this image with
+    // ptr<ObjectId>(), assuming one value per pixel; this corrupts labels and
+    // eventually causes OpenCV's feature-sampling calls to fail.
+    cv::Mat encoded_mask =
+        cv::imread(mask_paths_.at(idx), cv::IMREAD_UNCHANGED);
+    CHECK(!encoded_mask.empty()) << "Failed to load instance mask at "
+                                 << mask_paths_.at(idx);
+
+    // Keep the source precision (Kubric masks may be 8- or 16-bit), but
+    // explicitly discard the duplicated colour/alpha channels.
+    cv::Mat label_image;
+    if (encoded_mask.channels() == 1) {
+      label_image = encoded_mask;
+    } else {
+      cv::extractChannel(encoded_mask, label_image, 0);
+    }
+    CHECK_EQ(label_image.channels(), 1);
+    cv::Mat label_32s;
+    label_image.convertTo(label_32s, CV_32SC1);
+    CHECK_EQ(label_32s.type(), CV_32SC1);
+    return label_32s;
   }
 
   const GroundTruthInputPacket& getGtPacket(size_t idx) const {
