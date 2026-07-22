@@ -90,6 +90,6 @@ if __name__ == '__main__':
     #     sys.exit(bl_run(**unpacked_args))
     # except Exception as e:
     #     print(f"Running with ros2 {e}")
-        # from dynosam_utils.evaluation.runner import run
-        # args_dictionary = vars(args)
+    from dynosam_utils.evaluation.runner import run
+    # args_dictionary = vars(args)
     sys.exit(run(args_dictionary, unknown))
